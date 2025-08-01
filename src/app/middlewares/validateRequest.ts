@@ -1,0 +1,14 @@
+import { NextFunction, Request, Response } from "express";
+import { ZodObject } from "zod";
+
+
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const validateRequest = (zodSchema: ZodObject ) => async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        req.body = await zodSchema.parseAsync(req.body)
+        next()
+    } catch (err) {
+     next(err);   
+    }
+}
