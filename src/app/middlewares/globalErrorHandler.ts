@@ -3,22 +3,55 @@
 import { NextFunction, Request, Response } from "express";
 import { envVars } from "../config/env";
 import AppError from "../errorHelpers/appError";
+import { handleZodError } from "../helper/handleZodError";
+import { handleDuplicateError } from "../helper/handleDupliateError";
+import { handleCastError } from "../helper/handleCastError";
+import { handleValidationError } from "../helper/handleValidationError";
+import { TerrorSources } from "../interfaces/error.types";
 
 
 export const globalErrorHandler = (err: any, req: Request, res: Response, next: NextFunction)=>{
+
+    if(envVars.NODE_ENV === "development"){
+        console.log(err);
+    };
     
     let statusCode = 500;
     let message = `Something went wrong!! ${err.message}`;
+    let errorSources: any = []
 
+
+
+    // duplicate error
     if(err.code === 11000){
 
-        const matchedArray = err.message.match(/"([^"]*)"/)
-        statusCode = 400
-        message = `${matchedArray[1]} already exists`
+        const simplifiedError = handleDuplicateError(err);
+        statusCode = simplifiedError.statusCode;
+        message = simplifiedError.message;
 
-    } else if(err.name === "castError"){
-        statusCode = 400
-        message = "Invalid MongoDB object ID. Please provide a valid ID"
+    // Cast error/ ObjectId Error
+    } else if(err.name === "CastError"){
+        const simplifiedError = handleCastError(err);
+        statusCode = simplifiedError.statusCode;
+        message = simplifiedError.message;
+
+    } 
+    // Zod error
+    else if(err.name === "ZodError"){
+
+        const simplifiedError = handleZodError(err);
+        statusCode = simplifiedError.statusCode;
+        message = simplifiedError.message;
+        errorSources = simplifiedError.errorSources as TerrorSources[];
+    }
+
+    // Mongoose validation error
+    else if(err.name === "ValidationError"){
+
+        const simplifiedError = handleValidationError(err);
+        statusCode = simplifiedError.statusCode;
+        message = simplifiedError.message;
+        errorSources = simplifiedError.errorSources as TerrorSources[];
     }
     
     else if(err instanceof AppError){
@@ -32,7 +65,8 @@ export const globalErrorHandler = (err: any, req: Request, res: Response, next: 
     res.status(500).json({
         success: false,
         message,
-        err,
+        errorSources,
+        err: envVars.NODE_ENV === "development"? err : null,
         stack: envVars.NODE_ENV === "development"? err.stack : null                                                                                                                                                                                                                                                                                                                                                                                                             
     });
 }
